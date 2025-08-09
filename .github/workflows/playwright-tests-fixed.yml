@@ -1,4 +1,4 @@
-name: Automação de Testes End-to-End com Playwright
+name: 🧪 Automação de Testes End-to-End com Playwright
 
 on:
   push:
@@ -36,19 +36,14 @@ jobs:
         -X POST \
         -d '{
           "embeds": [{
-            "title": "🚀 Iniciando Testes Playwright - Login Tests",
-            "description": "⏳ **Execução de testes iniciada...**\n🎯 **Testes de Login**: Sistema front-test-automation",
+            "title": "🚀 Iniciando Testes Playwright",
+            "description": "⏳ **Execução de testes iniciada...**",
             "color": 3447003,
             "fields": [
               {
                 "name": "📋 Informações da Execução",
                 "value": "**Branch:** ${{ github.ref_name }}\n**Commit:** `${{ github.sha }}`\n**Ator:** ${{ github.actor }}\n**Horário:** '$(date -u +%H:%M:%S)'",
-                "inline": true
-              },
-              {
-                "name": "🎯 Cenários de Teste",
-                "value": "• Login com credenciais válidas\n• Login com credenciais inválidas\n• Login sem preencher campos",
-                "inline": true
+                "inline": false
               }
             ],
             "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
@@ -205,6 +200,15 @@ jobs:
           test-results/
         retention-days: 30
         
+    - name: 📊 Deploy Playwright Report to GitHub Pages
+      if: always()
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./playwright-report
+        destination_dir: reports/${{ github.run_number }}
+        keep_files: true
+        
     - name: 🔔 Send Discord success notification
       if: steps.tests.outputs.test_exit_code == '0'
       env:
@@ -214,8 +218,8 @@ jobs:
         -X POST \
         -d '{
           "embeds": [{
-            "title": "🧪 Testes Playwright ✅ PASSOU",
-            "description": "🎉 **Todos os testes de login foram executados com sucesso!**\n🌐 **Site testado**: front-test-automation.onrender.com",
+            "title": "Testes: ✅ PASSARAM",
+            "description": "🎉 **Todos os testes foram executados com sucesso!**",
             "color": 3066993,
             "fields": [
               {
@@ -229,23 +233,18 @@ jobs:
                 "inline": true
               },
               {
-                "name": "✅ Cenários Testados com Sucesso",
-                "value": "• ✅ Login com credenciais válidas\n• ✅ Login com credenciais inválidas\n• ✅ Login sem preencher campos obrigatórios",
-                "inline": false
-              },
-              {
                 "name": "🔗 Links Úteis",
-                "value": "[📋 Ver Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Relatório HTML](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[🌐 Site Testado](https://front-test-automation.onrender.com/)",
+                "value": "[📋 Ver Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Relatório HTML](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${{ github.run_number }})\n[🎭 Artefatos](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
                 "inline": false
               }
             ],
             "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
             "footer": {
-              "text": "🤖 Automação - Playwright | Sistema de Login",
+              "text": "🤖 Automação - Playwright",
               "icon_url": "https://playwright.dev/img/playwright-logo.svg"
             },
             "author": {
-              "name": "Playwright Test Runner - Login Suite",
+              "name": "Playwright Test Runner",
               "icon_url": "https://playwright.dev/img/playwright-logo.svg"
             }
           }]
@@ -262,7 +261,7 @@ jobs:
         -d '{
           "embeds": [{
             "title": "🧪 Testes Playwright ❌ FALHOU",
-            "description": "🚨 **Falhas detectadas nos testes de login!**\n🌐 **Site testado**: front-test-automation.onrender.com\n⚠️ **Verifique os logs para mais detalhes**",
+            "description": "🚨 **Falhas detectadas nos testes!**\n⚠️ **Verifique os logs para mais detalhes**",
             "color": 15158332,
             "fields": [
               {
@@ -276,28 +275,23 @@ jobs:
                 "inline": true
               },
               {
-                "name": "🎯 Cenários de Teste (Login)",
-                "value": "• Login com credenciais válidas\n• Login com credenciais inválidas\n• Login sem preencher campos obrigatórios",
-                "inline": false
-              },
-              {
                 "name": "🔧 Ações Recomendadas",
-                "value": "1️⃣ Verificar se o site está online\n2️⃣ Conferir se os seletores ainda estão corretos\n3️⃣ Analisar logs completos da execução\n4️⃣ Testar localmente se necessário",
+                "value": "1️⃣ Verificar logs de execução\n2️⃣ Analisar screenshots e vídeos\n3️⃣ Conferir se houve mudanças na aplicação\n4️⃣ Testar localmente se necessário",
                 "inline": false
               },
               {
                 "name": "🔗 Links Úteis",
-                "value": "[🚨 Ver Logs de Erro](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Artefatos](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[🌐 Site Testado](https://front-test-automation.onrender.com/)",
+                "value": "[🚨 Ver Logs de Erro](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Relatório HTML](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${{ github.run_number }})\n[🎭 Artefatos](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
                 "inline": false
               }
             ],
             "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
             "footer": {
-              "text": "🤖 Automação QA - Playwright | Sistema de Login",
+              "text": "🤖 Automação QA - Playwright",
               "icon_url": "https://playwright.dev/img/playwright-logo.svg"
             },
             "author": {
-              "name": "Playwright Test Runner - Login Suite",
+              "name": "Playwright Test Runner",
               "icon_url": "https://playwright.dev/img/playwright-logo.svg"
             }
           }]
