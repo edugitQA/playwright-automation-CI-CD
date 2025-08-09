@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -88,9 +88,11 @@ jobs:
       with:
         path: ./site
 
-    - name: 🚀 Deploy to GitHub Pages
-      id: deploy_pages
-      uses: actions/deploy-pages@v1
+    - name: 🚀 Deploy Playwright Report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        personal_token: ${{ secrets.PERSONAL_TOKEN }}
+        publish_dir: ./playwright-report 
 
     - name: 🔎 Set report URL and thumbnail
       id: set_report
