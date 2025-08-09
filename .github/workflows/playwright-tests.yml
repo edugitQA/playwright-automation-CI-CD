@@ -1,0 +1,215 @@
+name: 🧪 Playwright Tests with Discord Notifications
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 'lts/*'
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🎭 Install Playwright Browsers
+      run: npx playwright install --with-deps
+      
+    - name: 🚀 Send Discord start notification
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "embeds": [{
+            "title": "🚀 Iniciando Testes Playwright",
+            "description": "⏳ **Execução de testes iniciada...**",
+            "color": 3447003,
+            "fields": [
+              {
+                "name": "📋 Informações",
+                "value": "**Branch:** ${{ github.ref_name }}\n**Commit:** `${{ github.sha }}`\n**Ator:** ${{ github.actor }}",
+                "inline": false
+              }
+            ],
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
+            "footer": {
+              "text": "🤖 Automação QA - GitHub Actions"
+            }
+          }]
+        }' \
+        "$DISCORD_WEBHOOK" || echo "Failed to send start notification"
+        
+    - name: 🧪 Run Playwright tests
+      id: tests
+      continue-on-error: true
+      env:
+        GITHUB_ACTIONS: true
+      run: |
+        npx playwright test --reporter=json > test-output.log 2>&1
+        echo "test_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        
+    - name: 📊 Process test results
+      id: results
+      run: |
+        # Criar diretório de resultados se não existir
+        mkdir -p test-results
+        
+        # Extrair métricas dos resultados JSON se existir
+        if [ -f "test-results/results.json" ]; then
+          PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
+          FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
+          SKIPPED=$(jq -r '.stats.skipped // 0' test-results/results.json)
+          TOTAL=$(jq -r '(.stats.expected // 0) + (.stats.unexpected // 0) + (.stats.skipped // 0)' test-results/results.json)
+          DURATION=$(jq -r '.stats.duration // 0' test-results/results.json)
+        else
+          # Fallback para parsing de log se JSON não estiver disponível
+          PASSED=$(grep -o "[0-9]* passed" test-output.log | grep -o "[0-9]*" | head -1 || echo "0")
+          FAILED=$(grep -o "[0-9]* failed" test-output.log | grep -o "[0-9]*" | head -1 || echo "0")
+          SKIPPED=$(grep -o "[0-9]* skipped" test-output.log | grep -o "[0-9]*" | head -1 || echo "0")
+          TOTAL=$((PASSED + FAILED + SKIPPED))
+          DURATION="0"
+        fi
+        
+        echo "passed=$PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$FAILED" >> $GITHUB_OUTPUT
+        echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+        echo "total=$TOTAL" >> $GITHUB_OUTPUT
+        echo "duration=$DURATION" >> $GITHUB_OUTPUT
+        echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        echo "commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+        
+    - name: 📸 Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report-${{ github.run_number }}
+        path: |
+          playwright-report/
+          test-results/
+        retention-days: 30
+        
+    - name: 🔔 Send Discord success notification
+      if: steps.tests.outputs.test_exit_code == '0'
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        DURATION_MS=${{ steps.results.outputs.duration }}
+        if [ "$DURATION_MS" -gt 60000 ]; then
+          DURATION_MIN=$((DURATION_MS / 60000))
+          DURATION_SEC=$(((DURATION_MS % 60000) / 1000))
+          DURATION_TEXT="${DURATION_MIN}m ${DURATION_SEC}s"
+        elif [ "$DURATION_MS" -gt 1000 ]; then
+          DURATION_SEC=$((DURATION_MS / 1000))
+          DURATION_TEXT="${DURATION_SEC}s"
+        else
+          DURATION_TEXT="${DURATION_MS}ms"
+        fi
+        
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "embeds": [{
+            "title": "🧪 Testes Playwright ✅ PASSOU",
+            "description": "🎉 **Execução concluída com sucesso!**",
+            "color": 3066993,
+            "fields": [
+              {
+                "name": "📊 Resumo dos Testes",
+                "value": "**Total:** ${{ steps.results.outputs.total }}\n**✅ Passou:** ${{ steps.results.outputs.passed }}\n**⏭️ Pulado:** ${{ steps.results.outputs.skipped }}",
+                "inline": true
+              },
+              {
+                "name": "⏱️ Informações da Execução",
+                "value": "**Duração:** '"$DURATION_TEXT"'\n**Branch:** ${{ steps.results.outputs.branch }}\n**Commit:** `${{ steps.results.outputs.commit }}`",
+                "inline": true
+              },
+              {
+                "name": "🔗 Links Úteis",
+                "value": "[📋 Ver Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Artefatos](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                "inline": false
+              }
+            ],
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
+            "footer": {
+              "text": "🤖 Automação QA - Playwright",
+              "icon_url": "https://playwright.dev/img/playwright-logo.svg"
+            },
+            "author": {
+              "name": "Playwright Test Runner",
+              "icon_url": "https://playwright.dev/img/playwright-logo.svg"
+            }
+          }]
+        }' \
+        "$DISCORD_WEBHOOK" || echo "Failed to send success notification"
+        
+    - name: 🚨 Send Discord failure notification
+      if: steps.tests.outputs.test_exit_code != '0'
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        DURATION_MS=${{ steps.results.outputs.duration }}
+        if [ "$DURATION_MS" -gt 60000 ]; then
+          DURATION_MIN=$((DURATION_MS / 60000))
+          DURATION_SEC=$(((DURATION_MS % 60000) / 1000))
+          DURATION_TEXT="${DURATION_MIN}m ${DURATION_SEC}s"
+        elif [ "$DURATION_MS" -gt 1000 ]; then
+          DURATION_SEC=$((DURATION_MS / 1000))
+          DURATION_TEXT="${DURATION_SEC}s"
+        else
+          DURATION_TEXT="${DURATION_MS}ms"
+        fi
+        
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "embeds": [{
+            "title": "🧪 Testes Playwright ❌ FALHOU",
+            "description": "🚨 **Execução falhou! Verifique os logs para mais detalhes.**",
+            "color": 15158332,
+            "fields": [
+              {
+                "name": "📊 Resumo dos Testes",
+                "value": "**Total:** ${{ steps.results.outputs.total }}\n**✅ Passou:** ${{ steps.results.outputs.passed }}\n**❌ Falhou:** ${{ steps.results.outputs.failed }}\n**⏭️ Pulado:** ${{ steps.results.outputs.skipped }}",
+                "inline": true
+              },
+              {
+                "name": "⏱️ Informações da Execução",
+                "value": "**Duração:** '"$DURATION_TEXT"'\n**Branch:** ${{ steps.results.outputs.branch }}\n**Commit:** `${{ steps.results.outputs.commit }}`",
+                "inline": true
+              },
+              {
+                "name": "🔗 Links Úteis",
+                "value": "[🚨 Ver Logs de Erro](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n[📂 Repositório](https://github.com/${{ github.repository }})\n[📊 Artefatos](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                "inline": false
+              }
+            ],
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'",
+            "footer": {
+              "text": "🤖 Automação QA - Playwright",
+              "icon_url": "https://playwright.dev/img/playwright-logo.svg"
+            },
+            "author": {
+              "name": "Playwright Test Runner",
+              "icon_url": "https://playwright.dev/img/playwright-logo.svg"
+            }
+          }]
+        }' \
+        "$DISCORD_WEBHOOK" || echo "Failed to send failure notification"
+        
+    - name: 🏁 Set final exit code
+      run: exit ${{ steps.tests.outputs.test_exit_code }}
