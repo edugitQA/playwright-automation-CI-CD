@@ -16,6 +16,8 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    outputs:
+      test_exit_code: ${{ steps.tests.outputs.test_exit_code }}
     
     steps:
     - name: 📥 Checkout repository
@@ -46,7 +48,7 @@ jobs:
             "fields": [
               {
                 "name": "📋 Execução",
-                "value": "**Branch:** '${{ github.ref_name }}'\n**Commit:** `${{ github.sha }}`\n**Ator:** ${{ github.actor }}",
+                "value": "**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`\n**Ator:** ${{ github.actor }}",
                 "inline": false
               }
             ],
@@ -80,12 +82,17 @@ jobs:
         RUN_NUM=${{ github.run_number }}
         SITE_DIR=site
         mkdir -p $SITE_DIR/reports/$RUN_NUM
-        cp -r playwright-report/* $SITE_DIR/reports/$RUN_NUM/ || true
-        cp -r test-results $SITE_DIR/reports/$RUN_NUM/test-results || true
-        echo "<html><body><h1>Histórico de Execuções</h1><ul>" > $SITE_DIR/index.html
-        for dir in $(ls -1 $SITE_DIR/reports | sort -nr); do
-          echo "<li><a href='./reports/$dir/index.html'>Execução #$dir</a></li>" >> $SITE_DIR/index.html
-        done
+        cp -r playwright-report/* $SITE_DIR/reports/$RUN_NUM/ 2>/dev/null || true
+        cp -r test-results $SITE_DIR/reports/$RUN_NUM/test-results 2>/dev/null || true
+        
+        echo "<html><head><title>Histórico de Execuções</title></head><body>" > $SITE_DIR/index.html
+        echo "<h1>Histórico de Execuções Playwright</h1><ul>" >> $SITE_DIR/index.html
+        
+        # Lista apenas o diretório atual se for o primeiro run
+        if [ -d "$SITE_DIR/reports/$RUN_NUM" ]; then
+          echo "<li><a href='./reports/$RUN_NUM/index.html'>Execução #$RUN_NUM</a></li>" >> $SITE_DIR/index.html
+        fi
+        
         echo "</ul></body></html>" >> $SITE_DIR/index.html
 
     - name: 📦 Upload pages artifact
@@ -96,6 +103,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    if: always()
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -104,58 +112,54 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: 🔎 Extract report URL & thumbnail
+      - name: 🔎 Extract report URL
         id: set_report
         run: |
           RUN_NUM=${{ github.run_number }}
           OWNER=${{ github.repository_owner }}
-          REPO=${{ github.event.repository.name }}
+          REPO=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           REPORT_URL="https://${OWNER}.github.io/${REPO}/reports/${RUN_NUM}/"
           echo "report_url=$REPORT_URL" >> $GITHUB_OUTPUT
-
-          FILE_IMG=$(find site -type f -iname '*.png' | head -n1 || true)
-          if [ -n "$FILE_IMG" ]; then
-            REL=${FILE_IMG#site/}
-            echo "thumbnail_url=${REPORT_URL}${REL}" >> $GITHUB_OUTPUT
-          else
-            echo "thumbnail_url=" >> $GITHUB_OUTPUT
-          fi
 
       - name: 🔔 Send Discord final notification
         if: always()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          REPORT_URL: ${{ steps.set_report.outputs.report_url }}
-          THUMB: ${{ steps.set_report.outputs.thumbnail_url }}
-          EXIT_CODE: ${{ needs.test.outputs.test_exit_code }}
         run: |
-          STATUS_TITLE="✅ Testes Passaram"
-          STATUS_DESC="🎉 Todos os testes executados com sucesso!"
-          STATUS_COLOR=3066993
-          if [ "$EXIT_CODE" != "0" ]; then
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/$(echo '${{ github.repository }}' | cut -d'/' -f2)/reports/${{ github.run_number }}/"
+          EXIT_CODE="${{ needs.test.outputs.test_exit_code }}"
+          
+          if [ "$EXIT_CODE" = "0" ]; then
+            STATUS_TITLE="✅ Testes Passaram"
+            STATUS_DESC="🎉 Todos os testes executados com sucesso!"
+            STATUS_COLOR=3066993
+          else
             STATUS_TITLE="❌ Testes Falharam"
             STATUS_DESC="🚨 Falhas detectadas nos testes!"
             STATUS_COLOR=15158332
           fi
 
-          PAYLOAD=$(jq -n \
-            --arg title "$STATUS_TITLE" \
-            --arg desc "$STATUS_DESC" \
-            --arg url "$REPORT_URL" \
-            --arg thumb "$THUMB" \
-            '{
-              embeds: [
+          curl -H "Content-Type: application/json" -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"$STATUS_TITLE\",
+              \"description\": \"$STATUS_DESC\",
+              \"color\": $STATUS_COLOR,
+              \"fields\": [
                 {
-                  title: $title,
-                  description: $desc,
-                  color: $STATUS_COLOR,
-                  fields: [
-                    { name: "🔗 Relatório HTML", value: $url, inline: false },
-                    { name: "📂 Logs da Execução", value: "https://github.com/'"${GITHUB_REPOSITORY}"'/actions/runs/'"${GITHUB_RUN_ID}"'", inline: false }
-                  ],
-                  image: ($thumb | length) > 0 ? { url: $thumb } : null,
-                  timestamp: "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+                  \"name\": \"🔗 Relatório HTML\",
+                  \"value\": \"$REPORT_URL\",
+                  \"inline\": false
+                },
+                {
+                  \"name\": \"📂 Logs da Execução\",
+                  \"value\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                  \"inline\": false
                 }
-              ]
-            }')
-          echo "$PAYLOAD" | curl -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK"
+              ],
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",
+              \"footer\": {
+                \"text\": \"🤖 Automação - GitHub Actions\"
+              }
+            }]
+          }" "$DISCORD_WEBHOOK"
