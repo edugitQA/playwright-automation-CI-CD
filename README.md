@@ -1,65 +1,118 @@
-Projeto de Automação de Testes End-to-End com Playwright
+# 🎭 Projeto de Automação de Testes End-to-End com Playwright
 
-<img alt="Playwright" src="https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&amp;logo=playwright&amp;logoColor=white">
-<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white">
-<img alt="Node.js" src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&amp;logo=node.js&amp;logoColor=white">
-Automação de testes de aplicações web utilizando Playwright, TypeScript e Node.js. Estrutura profissional, fácil manutenção e integração com CI/CD.
+<p align="center">
+  <img alt="Playwright" src="https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white">
+</p>
 
-📦 Estrutura do Projeto
-tests — Testes automatizados (specs e page objects)
-playwright.config.ts — Configuração do Playwright
-playwright.yml — Workflow para execução dos testes no GitHub Actions
-README.md — Documentação do projeto
-🚀 Como Executar os Testes
+<p align="center">
+  <strong>Automação de testes de aplicações web utilizando Playwright, TypeScript e Node.js.</strong><br>
+  Estrutura profissional, fácil manutenção e integração com CI/CD.
+</p>
 
-### Instalação dos requisitos
-1. Instale as dependências:
+---
+
+## 📦 Estrutura do Projeto
+
+```
+playwright-mpc/
+├── tests/                      # Testes automatizados
+│   ├── pages/                  # Page Objects
+│   └── specs/                  # Arquivos de teste
+├── playwright.config.ts        # Configuração do Playwright
+├── .github/workflows/          # GitHub Actions
+│   └── playwright.yml          # Workflow CI/CD
+└── README.md                   # Documentação do projeto
+```
+## 🚀 Como Executar os Testes
+
+### 📋 Pré-requisitos
+
+- Node.js 16+ instalado
+- NPM ou Yarn
+
+### 🔧 Instalação
+
+1. **Clone o repositório:**
+   ```bash
+   git clone <url-do-repositorio>
+   cd playwright-mpc
+   ```
+
+2. **Instale as dependências:**
    ```bash
    npm install
    ```
-2. Instale os navegadores do Playwright:
+
+3. **Instale os navegadores do Playwright:**
    ```bash
    npx playwright install
    ```
 
-### Execução dos testes
+### ▶️ Execução dos Testes
 
-#### Modo headless (padrão):
+| Comando | Descrição |
+|---------|-----------|
+| `npx playwright test` | Execução em modo headless (padrão) |
+| `npx playwright test --headed` | Execução visual (acompanhar no navegador) |
+| `npx playwright test --ui` | Interface gráfica interativa |
+| `npx playwright test --project=chromium` | Executar apenas no Chromium |
+| `npx playwright test --project=firefox` | Executar apenas no Firefox |
+
+### 📊 Relatórios
+
 ```bash
-npx playwright test
+# Gerar e abrir relatório HTML
+npx playwright show-report
 ```
 
-#### Modo visual (acompanhar execução):
-```bash
-npx playwright test --headed
-```
+## ⚙️ Tecnologias Utilizadas
 
-#### Modo UI interativo:
-```bash
-npx playwright test --ui
-```
+<table>
+<tr>
+<td align="center">
+<img src="https://playwright.dev/img/playwright-logo.svg" width="50"><br>
+<strong>Playwright</strong><br>
+Framework de automação de testes
+</td>
+<td align="center">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/typescript/typescript-original.svg" width="50"><br>
+<strong>TypeScript</strong><br>
+Linguagem de programação tipada
+</td>
+<td align="center">
+<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/nodejs/nodejs-original.svg" width="50"><br>
+<strong>Node.js</strong><br>
+Ambiente de execução JavaScript
+</td>
+<td align="center">
+<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="50"><br>
+<strong>GitHub Actions</strong><br>
+CI/CD integrado
+</td>
+</tr>
+</table>
 
-#### Executar em navegador específico:
-```bash
-npx playwright test --project=chromium
-npx playwright test --project=firefox
-```
+## 📚 Documentação e Recursos
 
-⚙️ Tecnologias Utilizadas
+| Recurso | Link |
+|---------|------|
+| 📖 Documentação Playwright | [playwright.dev](https://playwright.dev/docs/intro) |
+| 📘 Documentação TypeScript | [typescriptlang.org](https://www.typescriptlang.org/docs/) |
+| 📗 Documentação Node.js | [nodejs.org](https://nodejs.org/en/docs/) |
 
-- **Playwright**: Framework de automação de testes.
-- **TypeScript**: Linguagem de programação tipada.
-- **Node.js**: Ambiente de execução JavaScript.
-- **GitHub Actions**: Integração contínua e entrega contínua (CI/CD).
+## 💡 Boas Práticas e Recomendações
 
-📚 Documentação
+- ✅ **Organização**: Mantenha os testes organizados em page objects e specs
+- 🔍 **Debug**: Utilize o modo visual (`--headed`) para depuração de cenários complexos
+- 🔄 **CI/CD**: Integre com pipelines de integração contínua para garantir qualidade
+- 📊 **Relatórios**: Sempre verifique os relatórios HTML após a execução dos testes
+- 🧪 **Testes**: Escreva testes independentes e reutilizáveis
 
-- [Documentação Playwright](https://playwright.dev/docs/intro)
-- [Documentação TypeScript](https://www.typescriptlang.org/docs/)
-- [Documentação Node.js](https://nodejs.org/en/docs/)
+---
 
-💡 Recomendações
-
-- Mantenha os testes organizados em page objects e specs.
-- Utilize o modo visual para depuração de cenários complexos.
-- Integre com pipelines CI/CD para garantir qualidade contínua.
+<p align="center">
+  <strong>🤝 Contribuições são bem-vindas!</strong><br>
+  Sinta-se à vontade para abrir issues ou pull requests.
+</p>
