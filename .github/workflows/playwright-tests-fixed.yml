@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -60,7 +60,7 @@ jobs:
       continue-on-error: true
       run: |
         set +e
-        npx playwright test
+        npx playwright test --reporter=html
         echo "test_exit_code=$?" >> $GITHUB_OUTPUT
         set -e
 
@@ -74,7 +74,7 @@ jobs:
           test-results/
         retention-days: 30
 
-    - name: 🛠️ Prepare site for GitHub Pages (include artifacts)
+    - name: 🛠️ Prepare site for GitHub Pages (with run history)
       if: always()
       run: |
         RUN_NUM=${{ github.run_number }}
@@ -82,75 +82,80 @@ jobs:
         mkdir -p $SITE_DIR/reports/$RUN_NUM
         cp -r playwright-report/* $SITE_DIR/reports/$RUN_NUM/ || true
         cp -r test-results $SITE_DIR/reports/$RUN_NUM/test-results || true
+        echo "<html><body><h1>Histórico de Execuções</h1><ul>" > $SITE_DIR/index.html
+        for dir in $(ls -1 $SITE_DIR/reports | sort -nr); do
+          echo "<li><a href='./reports/$dir/index.html'>Execução #$dir</a></li>" >> $SITE_DIR/index.html
+        done
+        echo "</ul></body></html>" >> $SITE_DIR/index.html
 
     - name: 📦 Upload pages artifact
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: ./site
 
-    - name: 🚀 Deploy Playwright Report to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        personal_token: ${{ secrets.PERSONAL_TOKEN }}
-        publish_dir: ./playwright-report 
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
-    - name: 🔎 Set report URL and thumbnail
-      id: set_report
-      run: |
-        RUN_NUM=${{ github.run_number }}
-        OWNER=${{ github.repository_owner }}
-        REPO=${{ github.event.repository.name }}
-        REPORT_URL="https://${OWNER}.github.io/${REPO}/reports/${RUN_NUM}/"
-        echo "report_url=$REPORT_URL" >> $GITHUB_OUTPUT
+      - name: 🔎 Extract report URL & thumbnail
+        id: set_report
+        run: |
+          RUN_NUM=${{ github.run_number }}
+          OWNER=${{ github.repository_owner }}
+          REPO=${{ github.event.repository.name }}
+          REPORT_URL="https://${OWNER}.github.io/${REPO}/reports/${RUN_NUM}/"
+          echo "report_url=$REPORT_URL" >> $GITHUB_OUTPUT
 
-        FILE_IMG=$(find site -type f -iname '*.png' | head -n1 || true)
-        if [ -n "$FILE_IMG" ]; then
-          REL=${FILE_IMG#site/}
-          echo "thumbnail_url=${REPORT_URL}${REL}" >> $GITHUB_OUTPUT
-        else
-          echo "thumbnail_url=" >> $GITHUB_OUTPUT
-        fi
+          FILE_IMG=$(find site -type f -iname '*.png' | head -n1 || true)
+          if [ -n "$FILE_IMG" ]; then
+            REL=${FILE_IMG#site/}
+            echo "thumbnail_url=${REPORT_URL}${REL}" >> $GITHUB_OUTPUT
+          else
+            echo "thumbnail_url=" >> $GITHUB_OUTPUT
+          fi
 
-    - name: 🔔 Send Discord notification
-      if: always()
-      env:
-        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        REPORT_URL: ${{ steps.set_report.outputs.report_url }}
-        THUMB: ${{ steps.set_report.outputs.thumbnail_url }}
-        EXIT_CODE: ${{ steps.tests.outputs.test_exit_code }}
-      run: |
-        STATUS_TITLE="✅ Testes Passaram"
-        STATUS_DESC="🎉 Todos os testes executados com sucesso!"
-        STATUS_COLOR=3066993
-        if [ "$EXIT_CODE" != "0" ]; then
-          STATUS_TITLE="❌ Testes Falharam"
-          STATUS_DESC="🚨 Falhas detectadas nos testes!"
-          STATUS_COLOR=15158332
-        fi
+      - name: 🔔 Send Discord final notification
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          REPORT_URL: ${{ steps.set_report.outputs.report_url }}
+          THUMB: ${{ steps.set_report.outputs.thumbnail_url }}
+          EXIT_CODE: ${{ needs.test.outputs.test_exit_code }}
+        run: |
+          STATUS_TITLE="✅ Testes Passaram"
+          STATUS_DESC="🎉 Todos os testes executados com sucesso!"
+          STATUS_COLOR=3066993
+          if [ "$EXIT_CODE" != "0" ]; then
+            STATUS_TITLE="❌ Testes Falharam"
+            STATUS_DESC="🚨 Falhas detectadas nos testes!"
+            STATUS_COLOR=15158332
+          fi
 
-        PAYLOAD=$(jq -n \
-          --arg title "$STATUS_TITLE" \
-          --arg desc "$STATUS_DESC" \
-          --arg url "$REPORT_URL" \
-          --arg thumb "$THUMB" \
-          --arg branch "${GITHUB_REF_NAME}" \
-          --arg commit "${GITHUB_SHA}" \
-          '{
-            embeds: [
-              {
-                title: $title,
-                description: $desc,
-                color: ($thumb | length) > 0 ? $STATUS_COLOR : $STATUS_COLOR,
-                fields: [
-                  { name: "🔗 Relatório HTML", value: $url, inline: false },
-                  { name: "📂 Logs da Execução", value: "https://github.com/'"${GITHUB_REPOSITORY}"'/actions/runs/'"${GITHUB_RUN_ID}"'", inline: false }
-                ],
-                image: ($thumb | length) > 0 ? { url: $thumb } : null,
-                timestamp: "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
-              }
-            ]
-          }')
-        echo "$PAYLOAD" | curl -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK"
-
-    - name: 🏁 Set final exit code
-      run: exit ${{ steps.tests.outputs.test_exit_code }}
+          PAYLOAD=$(jq -n \
+            --arg title "$STATUS_TITLE" \
+            --arg desc "$STATUS_DESC" \
+            --arg url "$REPORT_URL" \
+            --arg thumb "$THUMB" \
+            '{
+              embeds: [
+                {
+                  title: $title,
+                  description: $desc,
+                  color: $STATUS_COLOR,
+                  fields: [
+                    { name: "🔗 Relatório HTML", value: $url, inline: false },
+                    { name: "📂 Logs da Execução", value: "https://github.com/'"${GITHUB_REPOSITORY}"'/actions/runs/'"${GITHUB_RUN_ID}"'", inline: false }
+                  ],
+                  image: ($thumb | length) > 0 ? { url: $thumb } : null,
+                  timestamp: "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"
+                }
+              ]
+            }')
+          echo "$PAYLOAD" | curl -H "Content-Type: application/json" -X POST -d @- "$DISCORD_WEBHOOK"
