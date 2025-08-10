@@ -57,7 +57,7 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    // Você pode reativar os mobiles se necessário:
+    // reativar os mobiles se necessário:
     // {
     //   name: 'Mobile Chrome',
     //   use: { ...devices['Pixel 5'] },
@@ -68,7 +68,7 @@ export default defineConfig({
     // },
   ],
 
-  /* Se precisar rodar um servidor antes dos testes:
+  /* rodar um servidor antes dos testes:
   webServer: {
     command: 'npm run start',
     url: 'http://localhost:3000',

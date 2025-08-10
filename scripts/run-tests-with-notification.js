@@ -12,7 +12,7 @@ const { DiscordNotifier } = require('../utils/discord-notifier');
 
 class PlaywrightTestRunner {
   constructor() {
-    this.webhookUrl = process.env.DISCORD_WEBHOOK || 'https://discord.com/api/webhooks/1365873191263801375/s4ssIafbsG-X9Shx0imD5ZaBn6BYl_gFMXGhKtmLwi_M9OPppiRS7qZRH4q6ipzRqlI9';
+    this.webhookUrl = process.env.DISCORD_WEBHOOK || '{{DISCORD_WEBHOOK}}';
     this.notifier = new DiscordNotifier(this.webhookUrl);
     this.branch = process.env.GITHUB_REF_NAME || this.getCurrentBranch();
     this.commit = process.env.GITHUB_SHA || this.getCurrentCommit();
