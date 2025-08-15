@@ -38,3 +38,31 @@ test('Login sem preencher campos obrigatórios', async ({ page }) => {
   // Valida se aparece mensagem de erro de campos obrigatórios (ajuste conforme o sistema)
   // await expect(page.locator('text=Preencha todos os campos')).toBeVisible();
 });
+
+  test('Login com senha incorreta', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.fillUsername('admin');
+    await loginPage.fillPassword('senhaErrada123');
+    await loginPage.submit();
+    // Valida se aparece mensagem de erro de senha incorreta
+    await expect(page.locator('text=Credenciais inválidas. Use admin/password123')).toBeVisible();
+  });
+
+  test('Login com e-mail inválido', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.fillUsername('emailinvalido');
+    await loginPage.fillPassword('SenhaValida123');
+    await loginPage.submit();
+    // Valida se aparece mensagem de erro de e-mail inválido
+    await expect(page.locator('text=Credenciais inválidas. Use admin/password123')).toBeVisible();
+  });
+
+  test('Botão de login desabilitado com campos vazios', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.submit();
+    // Não preenche usuário nem senha
+    await expect(page.locator('text=Credenciais inválidas. Use admin/password123')).toBeVisible();
+  });
